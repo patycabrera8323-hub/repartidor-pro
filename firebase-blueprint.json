@@ -1,0 +1,59 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Represents a delivery order",
+      "type": "object",
+      "properties": {
+        "orderNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "picked_up", "on_way", "delivered", "cancelled"] },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "deliveryAddress": { "type": "string" },
+        "total": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "acceptedAt": { "type": "string", "format": "date-time" },
+        "deliveredAt": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" },
+        "paymentMethod": { "type": "string", "enum": ["cash", "card", "online"] },
+        "location": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "driverId": { "type": "string" }
+      },
+      "required": ["orderNumber", "status", "customerName", "deliveryAddress", "total", "createdAt"]
+    },
+    "Driver": {
+      "title": "Driver",
+      "description": "Represents a delivery driver",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "status": { "type": "string", "enum": ["online", "offline", "busy"] },
+        "currentLocation": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        }
+      },
+      "required": ["name", "email", "status"]
+    }
+  },
+  "firestore": {
+    "/orders": {
+      "schema": "Order",
+      "description": "Global collection of orders"
+    },
+    "/drivers": {
+      "schema": "Driver",
+      "description": "Collection of drivers with their metadata and location"
+    }
+  }
+}

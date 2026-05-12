@@ -1,0 +1,17 @@
+{
+  "name": "Repartidor PRO",
+  "short_name": "RepartidorPRO",
+  "description": "Plataforma de reparto inteligente",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#06b6d4",
+  "icons": [
+    {
+      "src": "/logo repartidor.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

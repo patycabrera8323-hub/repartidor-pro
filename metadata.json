@@ -1,0 +1,6 @@
+{
+  "name": "Repartidor Pro",
+  "description": "Aplicación profesional para repartidores con seguimiento en tiempo real, gestión de pedidos y notificaciones instantáneas.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": []
+}
