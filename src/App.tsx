@@ -8,14 +8,14 @@ import { Order } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Package, Truck, CheckCircle2, ChevronLeft, MapPin,
-  CreditCard, Info, Power, Zap, TrendingUp, Clock 
+  CreditCard, Info, Power, Zap, TrendingUp, Clock, Phone 
 } from 'lucide-react';
 import { cn, formatCurrency } from './lib/utils';
 import { useGeolocation } from './hooks/useGeolocation';
 import { auth, messaging, db } from './lib/firebase';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { getToken } from 'firebase/messaging';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
+import { getToken, onMessage } from 'firebase/messaging';
+import { doc, updateDoc, getDoc, onSnapshot } from 'firebase/firestore';
 import { orderService } from './services/orderService';
 
 export default function App() {
@@ -26,23 +26,63 @@ export default function App() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [isOnline, setIsOnline] = useState(true);
+  const [earnings, setEarnings] = useState(0);
   
   const { location } = useGeolocation();
+  const [error, setError] = useState<string | null>(null);
+
+  const playAlert = () => {
+    try {
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.volume = 0.5;
+      audio.play().catch(e => console.log("Audio playback failed (interaction needed):", e));
+    } catch (e) {
+      console.error("Error playing audio:", e);
+    }
+  };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
+    // Safety timeout to prevent white screen if Firebase is slow
+    const timer = setTimeout(() => {
       setAuthLoading(false);
-      if (u) {
+    }, 5000);
+
+    let unsubscribeDriver: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      
+      if (unsubscribeDriver) {
+        unsubscribeDriver();
+        unsubscribeDriver = null;
+      }
+
+      if (u && u.emailVerified) {
+        unsubscribeDriver = onSnapshot(doc(db, 'drivers', u.uid), (docSnap) => {
+          if (docSnap.exists()) {
+            setIsApproved(docSnap.data().approved === true);
+          } else {
+            setIsApproved(false);
+          }
+          setAuthLoading(false);
+        }, (err) => {
+          console.error("Error driver status:", err);
+          setIsApproved(false);
+          setAuthLoading(false);
+        });
+
         requestNotificationPermission(u.uid);
-        setTimeout(() => {
-          orderService.ensureDriverProfile(u).catch(err => {
-            console.error("Delayed driver profile check failed:", err);
-          });
-        }, 1000);
+      } else {
+        setIsApproved(false);
+        setAuthLoading(false);
       }
     });
-    return () => unsubscribe();
+
+    return () => {
+      clearTimeout(timer);
+      unsubscribeAuth();
+      if (unsubscribeDriver) unsubscribeDriver();
+    };
   }, []);
 
   const requestNotificationPermission = async (userId: string) => {
@@ -64,6 +104,16 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (!messaging) return;
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log('Foreground message received:', payload);
+      playAlert();
+      // Optional: Show a toast/alert here if desired
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (user && isOnline) {
       setTimeout(() => {
         orderService.ensureDriverProfile(user).catch(err => {
@@ -79,10 +129,27 @@ export default function App() {
       return;
     }
     const unsubscribe = orderService.getActiveOrders((updatedOrders) => {
+      // Check for triggers to play alert:
+      // 1. New pending order (unassigned)
+      // 2. An order assigned to me just became 'ready'
+      const shouldAlert = updatedOrders.some(o => {
+        const isNewPending = o.status === 'pending' && !orders.find(prev => prev.id === o.id);
+        const justBecameReady = o.status === 'ready' && o.driverId === user?.uid && orders.find(prev => prev.id === o.id && prev.status !== 'ready');
+        return isNewPending || justBecameReady;
+      });
+
+      if (shouldAlert) playAlert();
+      
       setOrders(updatedOrders);
+      
+      // Update earnings
+      const total = updatedOrders
+        .filter(o => o.status === 'delivered' && o.driverId === user?.uid)
+        .reduce((acc, curr) => acc + (curr.total || 0), 0);
+      setEarnings(total);
     });
     return () => unsubscribe();
-  }, [user, isOnline]);
+  }, [user, isOnline, orders.length]); // Added orders.length to trigger new pending check
 
   useEffect(() => {
     if (isOnline && location && user) {
@@ -90,11 +157,15 @@ export default function App() {
     }
   }, [location, isOnline, user]);
 
-  const handleUpdateStatus = async (orderId: string, nextStatus: Order['status']) => {
+  const handleUpdateStatus = async (orderId: string, nextStatus: Order['status'], assignDriver: boolean = false) => {
+    if (nextStatus === 'delivered') {
+      const confirm = window.confirm("¿Confirmas que el pedido ha sido entregado?");
+      if (!confirm) return;
+    }
     try {
-      await orderService.updateOrderStatus(orderId, nextStatus);
+      await orderService.updateOrderStatus(orderId, nextStatus, assignDriver);
       if (selectedOrder?.id === orderId) {
-        setSelectedOrder(prev => prev ? { ...prev, status: nextStatus } : null);
+        setSelectedOrder(prev => prev ? { ...prev, status: nextStatus, driverId: assignDriver ? user?.uid : prev.driverId } : null);
       }
     } catch (error) {
       alert("Error al actualizar el pedido. Verifica los permisos.");
@@ -151,9 +222,12 @@ export default function App() {
     );
   }
 
-  const activeOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');
-  const historyOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled');
-  const pendingOrders = orders.filter(o => o.status === 'pending');
+  const activeOrders = orders.filter(o => 
+    (o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready' || o.status === 'on_way') && 
+    (!o.driverId || o.driverId === user?.uid)
+  );
+  const historyOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled' || o.status === 'completed');
+  const pendingOrders = orders.filter(o => (o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready') && !o.driverId);
   const todayDelivered = historyOrders.filter(o => o.status === 'delivered').length;
 
   return (
@@ -316,16 +390,16 @@ export default function App() {
                     <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-4 flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-zinc-600">
                         <TrendingUp size={14} />
-                        <span className="text-[9px] font-bold uppercase tracking-widest">Entregados Hoy</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest">Ganancias Hoy</span>
                       </div>
-                      <span className="text-3xl font-black text-white">{todayDelivered}</span>
+                      <span className="text-3xl font-black text-emerald-400">{formatCurrency(earnings)}</span>
                     </div>
                     <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-4 flex flex-col gap-2">
                       <div className="flex items-center gap-2 text-zinc-600">
                         <Clock size={14} />
-                        <span className="text-[9px] font-bold uppercase tracking-widest">En Proceso</span>
+                        <span className="text-[9px] font-bold uppercase tracking-widest">Activos</span>
                       </div>
-                      <span className="text-3xl font-black text-emerald-400">{activeOrders.length}</span>
+                      <span className="text-3xl font-black text-white">{activeOrders.length}</span>
                     </div>
                   </div>
 
@@ -410,6 +484,11 @@ export default function App() {
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 mb-0.5">Recolección</p>
                       <p className="text-xs text-zinc-300">{selectedOrder.pickupLocation?.address || 'Sin dirección'}</p>
+                      {selectedOrder.storePhone && (
+                        <a href={`tel:${selectedOrder.storePhone}`} className="mt-1 flex items-center gap-1 text-emerald-500 text-[10px] font-bold hover:underline">
+                          <Phone size={10} /> Llamar Negocio: {selectedOrder.storePhone}
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="w-px h-3 bg-zinc-800 ml-3.5" />
@@ -420,6 +499,11 @@ export default function App() {
                     <div>
                       <p className="text-[9px] font-bold uppercase tracking-widest text-zinc-600 mb-0.5">Entrega</p>
                       <p className="text-xs text-zinc-300">{selectedOrder.deliveryLocation?.address || 'Sin dirección'}</p>
+                      {selectedOrder.clientPhone && (
+                        <a href={`tel:${selectedOrder.clientPhone}`} className="mt-1 flex items-center gap-1 text-emerald-500 text-[10px] font-bold hover:underline">
+                          <Phone size={10} /> Llamar Cliente: {selectedOrder.clientPhone}
+                        </a>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -473,54 +557,53 @@ export default function App() {
       {selectedOrder && (
         <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent pt-16 z-50">
           <div className="max-w-lg mx-auto w-full flex flex-col gap-3">
-            {selectedOrder.status === 'pending' && (
+            {!selectedOrder.driverId && (selectedOrder.status === 'accepted' || selectedOrder.status === 'preparing' || selectedOrder.status === 'ready') && (
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, 'accepted')}
+                  onClick={() => handleUpdateStatus(selectedOrder.id, selectedOrder.status, true)} // orderService handles assigning driverId
                   className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm"
                 >
                   ✓ Aceptar pedido
                 </button>
-                <button
-                  onClick={() => handleRejectOrder(selectedOrder.id)}
-                  className="px-5 py-4 bg-zinc-900 border border-red-500/20 text-red-400 font-black rounded-2xl uppercase tracking-widest active:scale-95 transition-all text-xs"
-                >
-                  ✕ Rechazar
-                </button>
               </div>
             )}
-            {selectedOrder.status === 'accepted' && (
-              <button
-                onClick={() => handleUpdateStatus(selectedOrder.id, 'picked_up')}
-                className="w-full py-4 bg-blue-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <Package size={18} /> Confirmar Recolección
-              </button>
+            
+            {selectedOrder.driverId === user.uid && (
+              <>
+                {(selectedOrder.status === 'accepted' || selectedOrder.status === 'preparing') && (
+                  <div className="w-full py-4 bg-zinc-900/50 border border-white/5 text-zinc-500 font-black uppercase tracking-widest rounded-2xl text-center text-xs">
+                    ⏳ El comercio está preparando el pedido...
+                  </div>
+                )}
+                
+                {selectedOrder.status === 'ready' && (
+                  <button
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'on_way')}
+                    className="w-full py-4 bg-blue-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <Package size={18} /> Confirmar Recolección
+                  </button>
+                )}
+                
+                {selectedOrder.status === 'on_way' && (
+                  <button
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')}
+                    className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <CheckCircle2 size={18} /> Confirmar Entrega ✓
+                  </button>
+                )}
+              </>
             )}
-            {selectedOrder.status === 'picked_up' && (
-              <button
-                onClick={() => handleUpdateStatus(selectedOrder.id, 'on_way')}
-                className="w-full py-4 bg-indigo-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <Truck size={18} /> Iniciar Entrega
-              </button>
-            )}
-            {selectedOrder.status === 'on_way' && (
-              <button
-                onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')}
-                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
-              >
-                <CheckCircle2 size={18} /> Confirmar Entrega ✓
-              </button>
-            )}
-            {(selectedOrder.status === 'delivered' || selectedOrder.status === 'cancelled') && (
+
+            {(selectedOrder.status === 'delivered' || selectedOrder.status === 'cancelled' || selectedOrder.status === 'completed') && (
               <div className={cn(
                 "w-full py-4 rounded-2xl text-center font-black uppercase tracking-widest text-sm",
-                selectedOrder.status === 'delivered' 
+                (selectedOrder.status === 'delivered' || selectedOrder.status === 'completed')
                   ? "bg-emerald-500/10 border border-emerald-500/20 text-emerald-400" 
                   : "bg-red-500/10 border border-red-500/20 text-red-400"
               )}>
-                Pedido {selectedOrder.status === 'delivered' ? '✅ Completado' : '✕ Cancelado'}
+                Pedido {selectedOrder.status === 'cancelled' ? '✕ Cancelado' : '✅ Completado'}
               </div>
             )}
           </div>

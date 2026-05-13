@@ -1,9 +1,12 @@
-export type OrderStatus = 'pending' | 'accepted' | 'picked_up' | 'on_way' | 'delivered' | 'cancelled';
+export type OrderStatus = 'pending' | 'accepted' | 'preparing' | 'ready' | 'on_way' | 'delivered' | 'cancelled' | 'completed';
 
 export interface Order {
   id: string;
   clientId: string;
+  clientPhone?: string;
   storeId: string;
+  storeName?: string;
+  storePhone?: string;
   status: OrderStatus;
   deliveryLocation: {
     address: string;
@@ -17,7 +20,9 @@ export interface Order {
   };
   items: OrderItem[];
   total: number;
-  createdAt: any; // Can be string or Firestore Timestamp
+  paymentMethod?: 'cash' | 'card';
+  notes?: string;
+  createdAt: any; 
   acceptedAt?: any;
   deliveredAt?: any;
   driverId?: string;

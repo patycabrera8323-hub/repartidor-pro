@@ -11,15 +11,17 @@ interface OrderCardProps {
 
 const statusConfig = {
   pending:   { color: "text-amber-400",   bg: "bg-amber-400/10 border-amber-400/20",   label: "🔔 Nuevo",        dot: "bg-amber-400" },
-  accepted:  { color: "text-blue-400",    bg: "bg-blue-400/10 border-blue-400/20",     label: "✓ Aceptado",      dot: "bg-blue-400" },
-  picked_up: { color: "text-indigo-400",  bg: "bg-indigo-400/10 border-indigo-400/20", label: "📦 Recolectado",  dot: "bg-indigo-400" },
+  accepted:  { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20",label: "✓ Aceptado",      dot: "bg-emerald-400" },
+  preparing: { color: "text-blue-400",    bg: "bg-blue-400/10 border-blue-400/20",     label: "👨‍🍳 Preparando",   dot: "bg-blue-400" },
+  ready:     { color: "text-cyan-400",    bg: "bg-cyan-400/10 border-cyan-400/20",     label: "📦 Listo",        dot: "bg-cyan-400" },
   on_way:    { color: "text-purple-400",  bg: "bg-purple-400/10 border-purple-400/20", label: "🛵 En camino",    dot: "bg-purple-400" },
   delivered: { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20",label: "✅ Entregado",   dot: "bg-emerald-400" },
   cancelled: { color: "text-red-400",     bg: "bg-red-400/10 border-red-400/20",       label: "✕ Cancelado",    dot: "bg-red-400" },
+  completed: { color: "text-zinc-400",    bg: "bg-zinc-400/10 border-zinc-400/20",     label: "🏁 Finalizado",   dot: "bg-zinc-400" },
 };
 
 export default function OrderCard({ order, onClick }: OrderCardProps) {
-  const cfg = statusConfig[order.status || 'pending'];
+  const cfg = statusConfig[order.status as keyof typeof statusConfig] || statusConfig.pending;
   const isPending = order.status === 'pending';
 
   return (

@@ -52,38 +52,41 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 export const orderService = {
   getActiveOrders(callback: (orders: Order[]) => void) {
     const q = query(
-      collection(db, 'orders')
+      collection(db, 'orders'),
+      where('status', 'in', ['pending', 'accepted', 'preparing', 'ready', 'on_way', 'delivered'])
     );
     
     return onSnapshot(q, (snapshot) => {
       const orders = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order));
-      console.log("Real-time orders updated:", orders);
       callback(orders);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'orders');
     });
   },
 
-  async updateOrderStatus(orderId: string, status: OrderStatus) {
+  async updateOrderStatus(orderId: string, status: OrderStatus, assignDriver: boolean = false) {
     const orderRef = doc(db, 'orders', orderId);
     try {
       const updateData: any = { status };
-      if (status === 'accepted') {
+      
+      if (assignDriver) {
         updateData.driverId = auth.currentUser?.uid;
         updateData.acceptedAt = serverTimestamp();
       }
+      
       if (status === 'delivered') {
         updateData.deliveredAt = serverTimestamp();
       }
+      
       await updateDoc(orderRef, updateData);
 
-      // Notificación al dueño vía ntfy.sh cuando se acepta un pedido
-      if (status === 'accepted') {
+      // Notificación al dueño vía ntfy.sh cuando un repartidor toma el pedido
+      if (assignDriver) {
         const orderIdShort = orderId.slice(0, 6).toUpperCase();
         fetch(`https://ntfy.sh/repartidor_pro_owner_alerts`, {
           method: 'POST',
-          body: `¡Pedido #${orderIdShort} aceptado por el repartidor!`,
-          headers: { 'Title': 'Nuevo Repartidor Asignado' }
+          body: `¡Pedido #${orderIdShort} tomado por un repartidor!`,
+          headers: { 'Title': 'Repartidor Asignado' }
         }).catch(err => console.error("Error enviando notificación:", err));
       }
     } catch (error) {
@@ -120,6 +123,22 @@ export const orderService = {
       }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `drivers/${auth.currentUser.uid}`);
+    }
+  },
+
+  async getEarnings(driverId: string) {
+    const q = query(
+      collection(db, 'orders'),
+      where('driverId', '==', driverId),
+      where('status', '==', 'delivered')
+    );
+    try {
+      const snap = await getDocs(q);
+      const total = snap.docs.reduce((acc, doc) => acc + (doc.data().total || 0), 0);
+      return total;
+    } catch (error) {
+      console.error("Error calculating earnings:", error);
+      return 0;
     }
   }
 };
