@@ -133,9 +133,9 @@ export default function App() {
       // 1. New pending order (unassigned)
       // 2. An order assigned to me just became 'ready'
       const shouldAlert = updatedOrders.some(o => {
-        const isNewPending = o.status === 'pending' && !orders.find(prev => prev.id === o.id);
-        const justBecameReady = o.status === 'ready' && o.driverId === user?.uid && orders.find(prev => prev.id === o.id && prev.status !== 'ready');
-        return isNewPending || justBecameReady;
+        const isNewConfirmed = o.status === 'confirmed' && !orders.find(prev => prev.id === o.id);
+        const justBecameOnRoute = o.status === 'on_route' && o.driverId === user?.uid && orders.find(prev => prev.id === o.id && prev.status !== 'on_route');
+        return isNewConfirmed || justBecameOnRoute;
       });
 
       if (shouldAlert) playAlert();
@@ -223,11 +223,11 @@ export default function App() {
   }
 
   const activeOrders = orders.filter(o => 
-    (o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready' || o.status === 'on_way') && 
+    (o.status === 'confirmed' || o.status === 'accepted' || o.status === 'preparing' || o.status === 'on_route') && 
     (!o.driverId || o.driverId === user?.uid)
   );
   const historyOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled' || o.status === 'completed');
-  const pendingOrders = orders.filter(o => (o.status === 'accepted' || o.status === 'preparing' || o.status === 'ready') && !o.driverId);
+  const pendingOrders = orders.filter(o => o.status === 'confirmed' && !o.driverId);
   const todayDelivered = historyOrders.filter(o => o.status === 'delivered').length;
 
   return (
@@ -557,13 +557,14 @@ export default function App() {
       {selectedOrder && (
         <div className="fixed bottom-0 left-0 right-0 p-5 bg-gradient-to-t from-zinc-950 via-zinc-950/90 to-transparent pt-16 z-50">
           <div className="max-w-lg mx-auto w-full flex flex-col gap-3">
-            {!selectedOrder.driverId && (selectedOrder.status === 'accepted' || selectedOrder.status === 'preparing' || selectedOrder.status === 'ready') && (
+            {/* Aceptar: solo pedidos confirmados por el negocio sin repartidor */}
+            {!selectedOrder.driverId && selectedOrder.status === 'confirmed' && (
               <div className="flex gap-3">
                 <button
-                  onClick={() => handleUpdateStatus(selectedOrder.id, selectedOrder.status, true)} // orderService handles assigning driverId
+                  onClick={() => handleUpdateStatus(selectedOrder.id, 'accepted', true)}
                   className="flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 active:scale-95 transition-all text-sm"
                 >
-                  ✓ Aceptar pedido
+                  ✓ Aceptar Pedido
                 </button>
               </div>
             )}
@@ -576,21 +577,12 @@ export default function App() {
                   </div>
                 )}
                 
-                {selectedOrder.status === 'ready' && (
-                  <button
-                    onClick={() => handleUpdateStatus(selectedOrder.id, 'on_way')}
-                    className="w-full py-4 bg-blue-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-blue-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
-                  >
-                    <Package size={18} /> Confirmar Recolección
-                  </button>
-                )}
-                
-                {selectedOrder.status === 'on_way' && (
+                {selectedOrder.status === 'on_route' && (
                   <button
                     onClick={() => handleUpdateStatus(selectedOrder.id, 'delivered')}
                     className="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-black font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
                   >
-                    <CheckCircle2 size={18} /> Confirmar Entrega ✓
+                    <CheckCircle2 size={18} /> Confirmar Entrega al Cliente ✓
                   </button>
                 )}
               </>
