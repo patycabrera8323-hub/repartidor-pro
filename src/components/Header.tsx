@@ -4,9 +4,10 @@ interface HeaderProps {
   title: string;
   isOnline: boolean;
   pendingCount?: number;
+  onBellClick?: () => void;
 }
 
-export default function Header({ title, isOnline, pendingCount = 0 }: HeaderProps) {
+export default function Header({ title, isOnline, pendingCount = 0, onBellClick }: HeaderProps) {
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
       <div className="border-b border-white/5 px-5 py-4 flex justify-between items-center backdrop-blur-xl"
@@ -26,7 +27,10 @@ export default function Header({ title, isOnline, pendingCount = 0 }: HeaderProp
             </div>
           </div>
         </div>
-        <button className="relative p-2 text-zinc-500 hover:text-white transition-colors rounded-xl hover:bg-white/5">
+        <button 
+          onClick={onBellClick}
+          className="relative p-2 text-zinc-500 hover:text-white transition-colors rounded-xl hover:bg-white/5"
+        >
           <Bell size={20} />
           {pendingCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-zinc-950 flex items-center justify-center text-[8px] font-black text-black">

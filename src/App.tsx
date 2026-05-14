@@ -71,7 +71,7 @@ export default function App() {
           setAuthLoading(false);
         });
 
-        requestNotificationPermission(u.uid);
+        requestNotificationPermission(u.uid).catch(() => {});
       } else {
         setIsApproved(false);
         setAuthLoading(false);
@@ -87,15 +87,24 @@ export default function App() {
 
   const requestNotificationPermission = async (userId: string) => {
     try {
-      if (!messaging) return;
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
+      if (typeof window === 'undefined' || !('Notification' in window)) return;
+      if (Notification.permission === 'granted') {
         const token = await getToken(messaging, {
           vapidKey: 'BMzHkZzqn7VB9-9FtK816FGZGT_xOTVXy-dhlFpfevVcm-ddkoqq5WLp2WTBkjRkYm7avn4P1NRJM9UhPlu37eU'
         });
         if (token) {
-          const driverRef = doc(db, 'drivers', userId);
-          await updateDoc(driverRef, { fcmToken: token });
+          await updateDoc(doc(db, 'drivers', userId), { fcmToken: token });
+        }
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted' && messaging) {
+        const token = await getToken(messaging, {
+          vapidKey: 'BMzHkZzqn7VB9-9FtK816FGZGT_xOTVXy-dhlFpfevVcm-ddkoqq5WLp2WTBkjRkYm7avn4P1NRJM9UhPlu37eU'
+        });
+        if (token) {
+          await updateDoc(doc(db, 'drivers', userId), { fcmToken: token });
         }
       }
     } catch (error) {
@@ -238,6 +247,7 @@ export default function App() {
         title={selectedOrder ? "Detalle del Pedido" : activeTab === 'home' ? "RepartidorPRO" : activeTab === 'history' ? "Historial" : "Mi Perfil"} 
         isOnline={isOnline}
         pendingCount={pendingOrders.length}
+        onBellClick={() => user && requestNotificationPermission(user.uid)}
       />
       
       <main className="pt-20 pb-28 px-4 max-w-lg mx-auto">
@@ -268,7 +278,10 @@ export default function App() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setIsOnline(!isOnline)}
+                      onClick={() => {
+                        setIsOnline(!isOnline);
+                        if (!isOnline && user) requestNotificationPermission(user.uid);
+                      }}
                       className={cn(
                         "flex items-center gap-2 px-5 py-3 rounded-2xl font-black uppercase text-xs tracking-widest transition-all active:scale-95",
                         isOnline 
@@ -412,7 +425,10 @@ export default function App() {
                       </p>
                     </div>
                     <button
-                      onClick={() => setIsOnline(!isOnline)}
+                      onClick={() => {
+                        setIsOnline(!isOnline);
+                        if (!isOnline && user) requestNotificationPermission(user.uid);
+                      }}
                       className={cn(
                         "px-5 py-2 rounded-xl font-bold uppercase text-xs tracking-widest transition-all active:scale-95",
                         isOnline 

@@ -17,19 +17,20 @@ service cloud.firestore {
       allow create: if isSignedIn();
       
       allow update: if isSignedIn() && (
-        // Case 1: Merchant or Admin updating status (accepted, preparing, ready, completed)
-        (request.resource.data.status in ['accepted', 'preparing', 'ready', 'completed', 'cancelled'] && 
+        // Case 1: Merchant or Admin updating status (confirmed, preparing, on_route, completed, cancelled)
+        (request.resource.data.status in ['confirmed', 'preparing', 'on_route', 'completed', 'cancelled'] && 
          request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'updatedAt'])) ||
         
         // Case 2: Driver claiming the order (assigning driverId)
-        (!resource.data.keys().contains('driverId') && 
+        (resource.data.status == 'confirmed' &&
+         !resource.data.keys().contains('driverId') && 
          request.resource.data.driverId == request.auth.uid && 
-         request.resource.data.status == resource.data.status &&
-         request.resource.data.diff(resource.data).affectedKeys().hasAny(['driverId', 'acceptedAt'])) ||
+         request.resource.data.status == 'accepted' &&
+         request.resource.data.diff(resource.data).affectedKeys().hasAny(['driverId', 'acceptedAt', 'status'])) ||
         
-        // Case 3: Driver updating their assigned order (ready -> on_way -> delivered)
+        // Case 3: Driver updating their assigned order (on_route -> delivered)
         (resource.data.driverId == request.auth.uid && 
-         request.resource.data.status in ['on_way', 'delivered', 'cancelled'] &&
+         request.resource.data.status in ['on_route', 'delivered', 'cancelled'] &&
          request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'deliveredAt', 'updatedAt']))
       );
     }

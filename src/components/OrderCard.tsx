@@ -1,6 +1,6 @@
 import { MapPin, Clock, ChevronRight, Package, CreditCard } from 'lucide-react';
-import { Order } from '@/src/types';
-import { cn, formatCurrency, formatDate } from '@/src/lib/utils';
+import { Order } from '../types';
+import { cn, formatCurrency, formatDate } from '../lib/utils';
 import { motion } from 'motion/react';
 
 interface OrderCardProps {
@@ -13,8 +13,7 @@ const statusConfig = {
   pending:   { color: "text-amber-400",   bg: "bg-amber-400/10 border-amber-400/20",   label: "🔔 Nuevo",        dot: "bg-amber-400" },
   accepted:  { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20",label: "✓ Aceptado",      dot: "bg-emerald-400" },
   preparing: { color: "text-blue-400",    bg: "bg-blue-400/10 border-blue-400/20",     label: "👨‍🍳 Preparando",   dot: "bg-blue-400" },
-  ready:     { color: "text-cyan-400",    bg: "bg-cyan-400/10 border-cyan-400/20",     label: "📦 Listo",        dot: "bg-cyan-400" },
-  on_way:    { color: "text-purple-400",  bg: "bg-purple-400/10 border-purple-400/20", label: "🛵 En camino",    dot: "bg-purple-400" },
+  on_route:  { color: "text-purple-400",  bg: "bg-purple-400/10 border-purple-400/20", label: "🛵 En camino",    dot: "bg-purple-400" },
   delivered: { color: "text-emerald-400", bg: "bg-emerald-400/10 border-emerald-400/20",label: "✅ Entregado",   dot: "bg-emerald-400" },
   cancelled: { color: "text-red-400",     bg: "bg-red-400/10 border-red-400/20",       label: "✕ Cancelado",    dot: "bg-red-400" },
   completed: { color: "text-zinc-400",    bg: "bg-zinc-400/10 border-zinc-400/20",     label: "🏁 Finalizado",   dot: "bg-zinc-400" },
@@ -22,7 +21,7 @@ const statusConfig = {
 
 export default function OrderCard({ order, onClick }: OrderCardProps) {
   const cfg = statusConfig[order.status as keyof typeof statusConfig] || statusConfig.pending;
-  const isPending = order.status === 'pending';
+  const isAvailable = order.status === 'pending' || order.status === 'confirmed';
 
   return (
     <motion.div
@@ -32,13 +31,13 @@ export default function OrderCard({ order, onClick }: OrderCardProps) {
       onClick={() => onClick(order)}
       className={cn(
         "relative rounded-3xl p-5 flex flex-col gap-4 cursor-pointer overflow-hidden transition-all",
-        isPending
+        isAvailable
           ? "bg-gradient-to-br from-slate-800/80 to-slate-700/60 border border-cyan-500/30 shadow-lg shadow-cyan-500/5"
           : "border border-white/10"
       )}
-      style={!isPending ? { background: 'rgba(30,41,59,0.7)' } : undefined}
+      style={!isAvailable ? { background: 'rgba(30,41,59,0.7)' } : undefined}
     >
-      {isPending && (
+      {isAvailable && (
         <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl" />
       )}
       
