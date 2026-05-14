@@ -53,7 +53,7 @@ export const orderService = {
   getActiveOrders(callback: (orders: Order[]) => void) {
     const q = query(
       collection(db, 'orders'),
-      where('status', 'in', ['confirmed', 'accepted', 'preparing', 'on_route', 'delivered'])
+      where('status', 'in', ['confirmed', 'accepted', 'preparing', 'ready', 'on_route', 'delivered'])
     );
     
     return onSnapshot(q, (snapshot) => {
