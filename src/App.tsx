@@ -21,7 +21,7 @@ import { orderService } from './services/orderService';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [isApproved, setIsApproved] = useState(false);
+  const [isApproved, setIsApproved] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'profile'>('home');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -73,7 +73,7 @@ export default function App() {
 
         requestNotificationPermission(u.uid).catch(() => {});
       } else {
-        setIsApproved(false);
+        setIsApproved(u ? false : null);
         setAuthLoading(false);
       }
     });
@@ -191,7 +191,7 @@ export default function App() {
 
   const handleLogout = () => { auth.signOut(); };
 
-  if (authLoading) {
+  if (authLoading || (user && isApproved === null)) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #0c4a6e 60%, #134e4a 100%)' }}>
         <div className="flex flex-col items-center gap-4">
@@ -202,8 +202,11 @@ export default function App() {
     );
   }
 
-  // Not authenticated → Show AuthFlow
   if (!user) {
+    return <AuthFlow onAuthenticated={setUser} />;
+  }
+
+  if (isApproved === false) {
     return <AuthFlow onAuthenticated={(u) => setUser(u)} />;
   }
 
