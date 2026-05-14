@@ -268,12 +268,15 @@ export default function App() {
     );
   }
 
-  const activeOrders = orders.filter(o => 
-    (o.status === 'confirmed' || o.status === 'accepted' || o.status === 'preparing' || o.status === 'on_route') && 
-    (!o.driverId || o.driverId === user?.uid)
-  );
-  const historyOrders = orders.filter(o => o.status === 'delivered' || o.status === 'cancelled' || o.status === 'completed');
   const pendingOrders = orders.filter(o => o.status === 'confirmed' && !o.driverId);
+  const activeOrders = orders.filter(o => 
+    o.driverId === user?.uid && 
+    ['accepted', 'preparing', 'ready', 'on_route'].includes(o.status)
+  );
+  const historyOrders = orders.filter(o => 
+    o.driverId === user?.uid && 
+    ['delivered', 'cancelled', 'completed'].includes(o.status)
+  );
   const todayDelivered = historyOrders.filter(o => o.status === 'delivered').length;
 
   return (
