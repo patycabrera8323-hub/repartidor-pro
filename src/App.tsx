@@ -138,18 +138,17 @@ export default function App() {
       return;
     }
     const unsubscribe = orderService.getActiveOrders((updatedOrders) => {
-      // Check for triggers to play alert:
-      // 1. New pending order (unassigned)
-      // 2. An order assigned to me just became 'ready'
-      const shouldAlert = updatedOrders.some(o => {
-        const isNewConfirmed = o.status === 'confirmed' && !orders.find(prev => prev.id === o.id);
-        const justBecameOnRoute = o.status === 'on_route' && o.driverId === user?.uid && orders.find(prev => prev.id === o.id && prev.status !== 'on_route');
-        return isNewConfirmed || justBecameOnRoute;
-      });
+      // Use functional update to avoid dependency on 'orders' state
+      setOrders(prevOrders => {
+        const shouldAlert = updatedOrders.some(o => {
+          const isNewConfirmed = o.status === 'confirmed' && !prevOrders.find(prev => prev.id === o.id);
+          const justBecameOnRoute = o.status === 'on_route' && o.driverId === user?.uid && prevOrders.find(prev => prev.id === o.id && prev.status !== 'on_route');
+          return isNewConfirmed || justBecameOnRoute;
+        });
 
-      if (shouldAlert) playAlert();
-      
-      setOrders(updatedOrders);
+        if (shouldAlert) playAlert();
+        return updatedOrders;
+      });
       
       // Update earnings
       const total = updatedOrders
@@ -158,7 +157,7 @@ export default function App() {
       setEarnings(total);
     });
     return () => unsubscribe();
-  }, [user, isOnline, orders.length]); // Added orders.length to trigger new pending check
+  }, [user, isOnline]); // Removed orders.length to prevent infinite loop
 
   useEffect(() => {
     if (isOnline && location && user) {
@@ -224,7 +223,21 @@ export default function App() {
         <p className="text-white/50 text-sm mt-3 text-center max-w-xs leading-relaxed">
           Tu cuenta está pendiente de revisión. Un administrador te autorizará pronto.
         </p>
-        <button onClick={() => auth.signOut()} className="mt-8 text-white/30 text-xs font-bold hover:text-white/60 transition-colors">
+        <button 
+          onClick={() => {
+            if (user) {
+              setAuthLoading(true);
+              getDoc(doc(db, 'drivers', user.uid)).then(docSnap => {
+                if (docSnap.exists()) setIsApproved(docSnap.data().approved === true);
+                setAuthLoading(false);
+              });
+            }
+          }}
+          className="w-full py-4 bg-cyan-500 text-black font-black uppercase tracking-widest rounded-2xl text-xs active:scale-95 transition-all"
+        >
+          Verificar Aprobación
+        </button>
+        <button onClick={() => auth.signOut()} className="mt-4 text-white/30 text-xs font-bold hover:text-white/60 transition-colors">
           Cerrar Sesión
         </button>
       </div>

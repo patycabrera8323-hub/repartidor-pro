@@ -1,4 +1,5 @@
 import { Bell, Zap } from 'lucide-react';
+import { cn } from '../lib/utils';
 
 interface HeaderProps {
   title: string;
@@ -29,9 +30,12 @@ export default function Header({ title, isOnline, pendingCount = 0, onBellClick 
         </div>
         <button 
           onClick={onBellClick}
-          className="relative p-2 text-zinc-500 hover:text-white transition-colors rounded-xl hover:bg-white/5"
+          className={cn(
+            "relative p-2 text-zinc-500 hover:text-white transition-colors rounded-xl hover:bg-white/5",
+            pendingCount > 0 && "text-amber-400"
+          )}
         >
-          <Bell size={20} />
+          <Bell size={20} className={cn(pendingCount > 0 && "animate-bounce")} />
           {pendingCount > 0 && (
             <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-emerald-500 rounded-full border-2 border-zinc-950 flex items-center justify-center text-[8px] font-black text-black">
               {pendingCount}
