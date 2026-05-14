@@ -142,11 +142,32 @@ export default function App() {
       setOrders(prevOrders => {
         const shouldAlert = updatedOrders.some(o => {
           const isNewConfirmed = o.status === 'confirmed' && !prevOrders.find(prev => prev.id === o.id);
-          const justBecameOnRoute = o.status === 'on_route' && o.driverId === user?.uid && prevOrders.find(prev => prev.id === o.id && prev.status !== 'on_route');
-          return isNewConfirmed || justBecameOnRoute;
+          const justBecameReady = o.status === 'ready' && o.driverId === user?.uid && prevOrders.find(prev => prev.id === o.id && prev.status !== 'ready');
+          return isNewConfirmed || justBecameReady;
         });
 
-        if (shouldAlert) playAlert();
+        if (shouldAlert) {
+          playAlert();
+          // Show a visual browser notification if possible
+          if (Notification.permission === 'granted') {
+             const o = updatedOrders.find(order => 
+               (order.status === 'confirmed' && !prevOrders.find(p => p.id === order.id)) ||
+               (order.status === 'ready' && order.driverId === user?.uid && prevOrders.find(p => p.id === order.id && p.status !== 'ready'))
+             );
+             if (o) {
+               const title = o.status === 'ready' ? "🥡 ¡ORDEN LISTA PARA RECOGER!" : "🔔 NUEVA ORDEN DISPONIBLE";
+               const body = o.status === 'ready' 
+                 ? `La orden de ${o.storeName || 'el comercio'} ya está lista. ¡Pasa por ella ahora!` 
+                 : "Hay un nuevo pedido esperando ser aceptado en tu zona.";
+               new Notification(title, { 
+                 body, 
+                 icon: '/logo.png',
+                 badge: '/logo.png',
+                 silent: false
+               });
+             }
+          }
+        }
         return updatedOrders;
       });
       
@@ -607,6 +628,15 @@ export default function App() {
                   <div className="w-full py-4 bg-zinc-900/50 border border-white/5 text-zinc-500 font-black uppercase tracking-widest rounded-2xl text-center text-xs">
                     ⏳ El comercio está preparando el pedido...
                   </div>
+                )}
+
+                {selectedOrder.status === 'ready' && (
+                  <button
+                    onClick={() => handleUpdateStatus(selectedOrder.id, 'on_route')}
+                    className="w-full py-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-black uppercase tracking-widest rounded-2xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  >
+                    <Truck size={20} /> 📦 PEDIDO RECOGIDO - INICIAR RUTA
+                  </button>
                 )}
                 
                 {selectedOrder.status === 'on_route' && (
