@@ -86,7 +86,7 @@ export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
                 <span className="text-orange-600">Repartidor Pro!</span>
               </h1>
               <p className="text-neutral-500 text-[10px] mt-3 font-bold px-4 leading-relaxed uppercase tracking-wider">
-                Tu herramienta de entrega <span className="text-orange-600">siempre contigo</span>. Instálala o úsala directo en tu navegador.
+                Si gustas puedes usarla <span className="text-orange-600">instalándola</span> o directamente en la <span className="text-orange-600">web</span> ahorrando memoria en tu celular.
               </p>
             </motion.div>
 
