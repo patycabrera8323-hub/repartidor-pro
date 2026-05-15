@@ -214,29 +214,23 @@ export default function App() {
 
   const handleLogout = () => { auth.signOut(); };
 
+  if (showWelcome) {
+    return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
+  }
+
   if (authLoading || (user && isApproved === null)) {
     return (
-      <>
-        <WelcomeScreen onComplete={() => setShowWelcome(false)} />
-        {!showWelcome && (
-          <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #0c4a6e 60%, #134e4a 100%)' }}>
-            <div className="flex flex-col items-center gap-4">
-              <img src="/logo repartidor.png" alt="Repartidor PRO" className="w-16 h-16 object-contain animate-pulse" />
-              <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          </div>
-        )}
-      </>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #0c4a6e 60%, #134e4a 100%)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <img src="/logo repartidor.png" alt="Repartidor PRO" className="w-16 h-16 object-contain animate-pulse" />
+          <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </div>
     );
   }
 
   if (!user) {
-    return (
-      <>
-        <WelcomeScreen onComplete={() => setShowWelcome(false)} />
-        {!showWelcome && <AuthFlow onAuthenticated={setUser} />}
-      </>
-    );
+    return <AuthFlow onAuthenticated={setUser} />;
   }
 
   if (isApproved === false) {
