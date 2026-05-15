@@ -6,7 +6,7 @@ export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome_Repartidor_v1');
+    const hasSeenWelcome = localStorage.getItem('hasSeenWelcome_Repartidor_v2');
     if (!hasSeenWelcome) {
       setTimeout(() => setIsVisible(true), 100);
     } else {
@@ -15,7 +15,7 @@ export function WelcomeScreen({ onComplete }: { onComplete: () => void }) {
   }, [onComplete]);
 
   const handleStart = () => {
-    localStorage.setItem('hasSeenWelcome_Repartidor_v1', 'true');
+    localStorage.setItem('hasSeenWelcome_Repartidor_v2', 'true');
     setIsVisible(false);
     setTimeout(onComplete, 400);
   };
