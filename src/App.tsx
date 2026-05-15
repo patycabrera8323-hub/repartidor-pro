@@ -4,6 +4,7 @@ import BottomNav from './components/BottomNav';
 import OrderCard from './components/OrderCard';
 import OrderMap from './components/OrderMap';
 import AuthFlow from './components/AuthFlow';
+import { WelcomeScreen } from './components/WelcomeScreen';
 import { Order } from './types';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -20,6 +21,7 @@ import { orderService } from './services/orderService';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
+  const [showWelcome, setShowWelcome] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [isApproved, setIsApproved] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'history' | 'profile'>('home');
@@ -214,17 +216,27 @@ export default function App() {
 
   if (authLoading || (user && isApproved === null)) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #0c4a6e 60%, #134e4a 100%)' }}>
-        <div className="flex flex-col items-center gap-4">
-          <img src="/logo repartidor.png" alt="Repartidor PRO" className="w-16 h-16 object-contain animate-pulse" />
-          <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      </div>
+      <>
+        <WelcomeScreen onComplete={() => setShowWelcome(false)} />
+        {!showWelcome && (
+          <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f172a 0%, #0c4a6e 60%, #134e4a 100%)' }}>
+            <div className="flex flex-col items-center gap-4">
+              <img src="/logo repartidor.png" alt="Repartidor PRO" className="w-16 h-16 object-contain animate-pulse" />
+              <div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
   if (!user) {
-    return <AuthFlow onAuthenticated={setUser} />;
+    return (
+      <>
+        <WelcomeScreen onComplete={() => setShowWelcome(false)} />
+        {!showWelcome && <AuthFlow onAuthenticated={setUser} />}
+      </>
+    );
   }
 
   if (isApproved === false) {
