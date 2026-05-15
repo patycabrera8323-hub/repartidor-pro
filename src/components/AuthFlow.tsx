@@ -1,16 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { 
   createUserWithEmailAndPassword, 
   sendEmailVerification,
   signInWithEmailAndPassword,
-  onAuthStateChanged,
   updateProfile,
   User
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Clock } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft, Mail, RefreshCw, Clock, User as UserIcon, Phone, MapPin, Lock, ChevronRight } from 'lucide-react';
 
 interface AuthFlowProps {
   onAuthenticated: (user: User) => void;
@@ -18,8 +17,8 @@ interface AuthFlowProps {
 
 type Screen = 'home' | 'login' | 'register' | 'verify-email' | 'pending-approval';
 
-const inputClass = "w-full px-4 py-3.5 rounded-2xl border border-white/10 bg-white/5 text-white placeholder:text-white/30 text-sm font-medium outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all";
-const labelClass = "text-[10px] font-black uppercase tracking-widest text-white/50 ml-1 mb-1.5 block";
+const inputClass = "w-full px-5 py-4 rounded-2xl border border-white/10 bg-white/[0.03] text-white placeholder:text-white/20 text-sm font-medium outline-none focus:ring-2 focus:ring-cyan-500/40 focus:bg-white/[0.05] transition-all";
+const labelClass = "text-[10px] font-black uppercase tracking-[0.2em] text-white/40 ml-2 mb-2 block";
 
 export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
   const [screen, setScreen] = useState<Screen>('home');
@@ -50,7 +49,6 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
         setScreen('verify-email');
         return;
       }
-      // Check approval
       const driverDoc = await getDoc(doc(db, 'drivers', cred.user.uid));
       if (!driverDoc.exists() || driverDoc.data()?.approved !== true) {
         setPendingUser(cred.user);
@@ -65,7 +63,7 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
         'auth/invalid-credential': 'Correo o contraseña incorrectos.',
         'auth/too-many-requests': 'Demasiados intentos. Intenta más tarde.',
       };
-      setError(msgs[err.code] || err.message);
+      setError(msgs[err.code] || 'Error al ingresar. Revisa tus datos.');
     } finally {
       setLoading(false);
     }
@@ -75,8 +73,8 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
     e.preventDefault();
     setError(null);
     if (form.password !== form.confirm) { setError('Las contraseñas no coinciden.'); return; }
-    if (form.password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return; }
-    if (!form.name || !form.age || !form.address || !form.phone) { setError('Completa todos los campos.'); return; }
+    if (form.password.length < 6) { setError('Usa al menos 6 caracteres.'); return; }
+    if (!form.name || !form.phone) { setError('Completa los campos obligatorios.'); return; }
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
@@ -84,38 +82,23 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
       await sendEmailVerification(cred.user);
       await setDoc(doc(db, 'drivers', cred.user.uid), {
         name: form.name,
-        age: Number(form.age),
+        age: Number(form.age) || 0,
         address: form.address,
         phone: form.phone,
         email: form.email,
         approved: false,
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
       });
       setPendingUser(cred.user);
       setScreen('verify-email');
     } catch (err: any) {
       const msgs: Record<string, string> = {
-        'auth/email-already-in-use': 'Este correo ya está registrado. Intenta iniciar sesión.',
+        'auth/email-already-in-use': 'Este correo ya está registrado.',
         'auth/invalid-email': 'El correo no es válido.',
-        'auth/weak-password': 'Contraseña muy débil. Usa al menos 6 caracteres.',
       };
-      setError(msgs[err.code] || err.message);
+      setError(msgs[err.code] || 'Error en el registro.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResendEmail = async () => {
-    if (!pendingUser) return;
-    setResending(true);
-    try {
-      await sendEmailVerification(pendingUser);
-      alert('Correo de verificación reenviado. Revisa tu bandeja.');
-    } catch {
-      alert('Error al reenviar. Intenta más tarde.');
-    } finally {
-      setResending(false);
     }
   };
 
@@ -132,7 +115,7 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
           onAuthenticated(pendingUser);
         }
       } else {
-        alert('Tu correo aún no está verificado. Revisa tu bandeja de entrada.');
+        alert('Correo no verificado todavía.');
       }
     } finally {
       setLoading(false);
@@ -140,63 +123,45 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
   };
 
   return (
-    <div 
-      className="min-h-screen flex flex-col font-sans relative overflow-hidden"
-      style={{ background: 'linear-gradient(160deg, #0f172a 0%, #0c4a6e 55%, #134e4a 100%)' }}
-    >
-      {/* Glows */}
-      <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-500/8 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-24 left-0 w-64 h-64 bg-teal-500/8 rounded-full blur-3xl pointer-events-none" />
+    <div className="min-h-screen bg-[#020617] text-white font-sans flex flex-col relative overflow-hidden">
+      {/* Decorative Blur */}
+      <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-600/10 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-900/10 rounded-full blur-[100px] pointer-events-none" />
 
-      <div className="flex-1 flex flex-col items-center justify-center p-6">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 relative z-10">
         <AnimatePresence mode="wait">
 
           {/* HOME SCREEN */}
           {screen === 'home' && (
             <motion.div
               key="home"
-              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
-              className="w-full max-w-sm flex flex-col items-center gap-10"
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
+              className="w-full max-w-sm flex flex-col items-center gap-12"
             >
-              <div className="flex flex-col items-center gap-5">
-                <motion.img
-                  initial={{ scale: 0.7, rotate: -8 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  transition={{ type: 'spring', stiffness: 200, delay: 0.1 }}
-                  src="/logo repartidor.png"
-                  alt="Repartidor PRO"
-                  className="w-28 h-28 object-contain drop-shadow-2xl"
-                />
+              <div className="flex flex-col items-center gap-6">
+                <div className="w-24 h-24 bg-gradient-to-br from-cyan-500 to-blue-700 rounded-[2.5rem] p-4 shadow-2xl shadow-cyan-900/40 border border-white/20">
+                   <img src="/logo.png" alt="Logo" className="w-full h-full object-contain brightness-0 invert" />
+                </div>
                 <div className="text-center">
-                  <h1 className="text-4xl font-black tracking-tighter text-white">
-                    Repartidor<span className="text-cyan-400">PRO</span>
+                  <h1 className="text-4xl font-black tracking-tighter leading-tight">
+                    REPARTIDOR<br/><span className="text-cyan-400">ELITE PRO</span>
                   </h1>
-                  <p className="text-sky-300/50 text-sm mt-1.5 font-medium">Plataforma de reparto inteligente</p>
+                  <p className="text-white/40 text-xs mt-3 font-bold uppercase tracking-[0.2em]">Únete a la nueva era del reparto</p>
                 </div>
               </div>
 
-              <div className="flex gap-2 flex-wrap justify-center">
-                {['🗺 Mapa en vivo', '📦 Pedidos reales', '⚡ Tiempo real'].map(f => (
-                  <span key={f} className="px-3 py-1.5 rounded-full text-[10px] font-bold text-cyan-200/60 uppercase tracking-widest border border-cyan-500/15"
-                    style={{ background: 'rgba(6,182,212,0.06)' }}>
-                    {f}
-                  </span>
-                ))}
-              </div>
-
-              <div className="w-full flex flex-col gap-3">
+              <div className="w-full flex flex-col gap-4">
                 <button
                   onClick={() => setScreen('login')}
-                  className="w-full py-4 font-black rounded-2xl text-sm tracking-wide shadow-2xl active:scale-95 transition-transform text-white"
-                  style={{ background: 'linear-gradient(135deg, #06b6d4, #14b8a6)' }}
+                  className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 font-black rounded-2xl text-[11px] tracking-[0.3em] uppercase shadow-2xl shadow-cyan-900/20 active:scale-95 transition-all flex items-center justify-center gap-3"
                 >
-                  Ingresar a mi cuenta
+                  Iniciar Sesión <ChevronRight size={14} />
                 </button>
                 <button
                   onClick={() => setScreen('register')}
-                  className="w-full py-4 bg-white/8 border border-white/10 text-white font-black rounded-2xl text-sm tracking-wide active:scale-95 transition-transform"
+                  className="w-full py-5 bg-white/[0.03] border border-white/10 text-white font-black rounded-2xl text-[11px] tracking-[0.3em] uppercase active:scale-95 transition-all hover:bg-white/[0.05]"
                 >
-                  Crear nueva cuenta
+                  Registrarme Ahora
                 </button>
               </div>
             </motion.div>
@@ -206,38 +171,36 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
           {screen === 'login' && (
             <motion.div
               key="login"
-              initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              className="w-full max-w-sm flex flex-col gap-6"
+              initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
+              className="w-full max-w-sm flex flex-col gap-8"
             >
-              <button onClick={() => { setScreen('home'); setError(null); }} className="flex items-center gap-2 text-white/50 hover:text-white transition-colors self-start text-sm">
-                <ArrowLeft size={16} /> Volver
+              <button onClick={() => setScreen('home')} className="flex items-center gap-2 text-white/40 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest">
+                <ArrowLeft size={14} /> Volver al Inicio
               </button>
               <div>
-                <h2 className="text-3xl font-black text-white tracking-tight">Ingresar</h2>
-                <p className="text-white/40 text-sm mt-1">Accede con tu correo y contraseña</p>
+                <h2 className="text-3xl font-black tracking-tight">Bienvenido de <span className="text-cyan-400">Vuelta</span></h2>
+                <p className="text-white/40 text-xs mt-2 uppercase tracking-widest font-bold">Ingresa a tu cuenta de socio</p>
               </div>
-              <form onSubmit={handleLogin} className="flex flex-col gap-4">
-                <div>
-                  <label className={labelClass}>Correo electrónico</label>
-                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="tu@correo.com" className={inputClass} required />
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div className="space-y-1">
+                  <label className={labelClass}><Mail size={10} className="inline mr-1" /> Correo Electrónico</label>
+                  <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="ejemplo@correo.com" className={inputClass} required />
                 </div>
-                <div>
-                  <label className={labelClass}>Contraseña</label>
+                <div className="space-y-1">
+                  <label className={labelClass}><Lock size={10} className="inline mr-1" /> Contraseña</label>
                   <div className="relative">
-                    <input type={showPassword ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" className={inputClass + ' pr-12'} required />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70">
+                    <input type={showPassword ? 'text' : 'password'} value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="••••••••" className={inputClass} required />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/20 hover:text-white/60">
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
                 </div>
-                {error && <p className="text-red-300 text-xs font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-3">{error}</p>}
+                {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase p-4 rounded-2xl tracking-widest leading-relaxed">{error}</div>}
                 <button type="submit" disabled={loading}
-                  className="w-full py-4 font-black rounded-2xl text-sm text-white active:scale-95 transition-transform disabled:opacity-50 mt-2"
-                  style={{ background: 'linear-gradient(135deg, #06b6d4, #14b8a6)' }}>
-                  {loading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Ingresando...</span> : 'Ingresar'}
+                  className="w-full py-5 bg-cyan-600 hover:bg-cyan-500 text-white font-black rounded-2xl text-[11px] tracking-[0.3em] uppercase active:scale-95 transition-all disabled:opacity-50 mt-4 shadow-xl shadow-cyan-900/20 border border-white/10">
+                  {loading ? 'Validando...' : 'Entrar al Panel'}
                 </button>
               </form>
-              <p className="text-center text-white/30 text-xs">¿No tienes cuenta? <button onClick={() => { setScreen('register'); setError(null); }} className="text-cyan-400 font-bold hover:underline">Regístrate</button></p>
             </motion.div>
           )}
 
@@ -245,60 +208,57 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
           {screen === 'register' && (
             <motion.div
               key="register"
-              initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}
-              className="w-full max-w-sm flex flex-col gap-5"
+              initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }}
+              className="w-full max-w-sm flex flex-col gap-6"
             >
-              <button onClick={() => { setScreen('home'); setError(null); }} className="flex items-center gap-2 text-white/50 hover:text-white transition-colors self-start text-sm">
-                <ArrowLeft size={16} /> Volver
+              <button onClick={() => setScreen('home')} className="flex items-center gap-2 text-white/40 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest">
+                <ArrowLeft size={14} /> Inicio
               </button>
-              <div>
-                <h2 className="text-3xl font-black text-white tracking-tight">Crear Cuenta</h2>
-                <p className="text-white/40 text-sm mt-1">Regístrate como repartidor</p>
+              <div className="mb-2">
+                <h2 className="text-3xl font-black tracking-tight text-cyan-400">Nuevo Socio</h2>
+                <p className="text-white/40 text-[9px] mt-1 uppercase tracking-[0.2em] font-bold">Completa tu perfil de repartidor</p>
               </div>
-              <form onSubmit={handleRegister} className="flex flex-col gap-3">
-                <div>
-                  <label className={labelClass}>Nombre completo</label>
-                  <input type="text" value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} placeholder="Juan García López" className={inputClass} required />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className={labelClass}>Edad</label>
-                    <input type="number" min="18" max="70" value={form.age} onChange={e => setForm(f=>({...f, age: e.target.value}))} placeholder="25" className={inputClass} required />
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="space-y-1">
+                    <label className={labelClass}><UserIcon size={10} className="inline mr-1" /> Nombre Completo</label>
+                    <input type="text" value={form.name} onChange={e => setForm(f=>({...f, name: e.target.value}))} placeholder="Tu Nombre Real" className={inputClass} required />
                   </div>
-                  <div>
-                    <label className={labelClass}>Teléfono</label>
-                    <input type="tel" value={form.phone} onChange={e => setForm(f=>({...f, phone: e.target.value}))} placeholder="555-123-4567" className={inputClass} required />
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className={labelClass}>Edad</label>
+                      <input type="number" min="18" value={form.age} onChange={e => setForm(f=>({...f, age: e.target.value}))} placeholder="18+" className={inputClass} required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelClass}><Phone size={10} className="inline mr-1" /> Teléfono</label>
+                      <input type="tel" value={form.phone} onChange={e => setForm(f=>({...f, phone: e.target.value}))} placeholder="10 dígitos" className={inputClass} required />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <label className={labelClass}><MapPin size={10} className="inline mr-1" /> Dirección de Trabajo</label>
+                    <input type="text" value={form.address} onChange={e => setForm(f=>({...f, address: e.target.value}))} placeholder="Colonia o Zona" className={inputClass} required />
+                  </div>
+                  <div className="space-y-1">
+                    <label className={labelClass}><Mail size={10} className="inline mr-1" /> Correo Electrónico</label>
+                    <input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} placeholder="socio@correo.com" className={inputClass} required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className={labelClass}>Contraseña</label>
+                      <input type="password" value={form.password} onChange={e => setForm(f=>({...f, password: e.target.value}))} placeholder="••••••" className={inputClass} required />
+                    </div>
+                    <div className="space-y-1">
+                      <label className={labelClass}>Repetir</label>
+                      <input type="password" value={form.confirm} onChange={e => setForm(f=>({...f, confirm: e.target.value}))} placeholder="••••••" className={inputClass} required />
+                    </div>
                   </div>
                 </div>
-                <div>
-                  <label className={labelClass}>Dirección</label>
-                  <input type="text" value={form.address} onChange={e => setForm(f=>({...f, address: e.target.value}))} placeholder="Calle, Colonia, Ciudad" className={inputClass} required />
-                </div>
-                <div>
-                  <label className={labelClass}>Correo electrónico</label>
-                  <input type="email" value={form.email} onChange={e => setForm(f=>({...f, email: e.target.value}))} placeholder="tu@correo.com" className={inputClass} required />
-                </div>
-                <div>
-                  <label className={labelClass}>Contraseña</label>
-                  <div className="relative">
-                    <input type={showPassword ? 'text' : 'password'} value={form.password} onChange={e => setForm(f=>({...f, password: e.target.value}))} placeholder="Mín. 6 caracteres" className={inputClass + ' pr-12'} required />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70">
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className={labelClass}>Confirmar contraseña</label>
-                  <input type="password" value={form.confirm} onChange={e => setForm(f=>({...f, confirm: e.target.value}))} placeholder="Repite tu contraseña" className={inputClass} required />
-                </div>
-                {error && <p className="text-red-300 text-xs font-medium bg-red-500/10 border border-red-500/20 rounded-xl p-3">{error}</p>}
+                {error && <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-black uppercase p-3 rounded-2xl text-center">{error}</div>}
                 <button type="submit" disabled={loading}
-                  className="w-full py-4 font-black rounded-2xl text-sm text-white active:scale-95 transition-transform disabled:opacity-50 mt-1"
-                  style={{ background: 'linear-gradient(135deg, #06b6d4, #14b8a6)' }}>
-                  {loading ? <span className="flex items-center justify-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Registrando...</span> : 'Crear Cuenta'}
+                  className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-2xl text-[11px] tracking-[0.3em] uppercase active:scale-95 transition-all disabled:opacity-50 mt-2 shadow-2xl shadow-cyan-900/20">
+                  {loading ? 'Creando Socio...' : 'Finalizar Registro'}
                 </button>
               </form>
-              <p className="text-center text-white/30 text-xs">¿Ya tienes cuenta? <button onClick={() => { setScreen('login'); setError(null); }} className="text-cyan-400 font-bold hover:underline">Inicia sesión</button></p>
             </motion.div>
           )}
 
@@ -306,31 +266,26 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
           {screen === 'verify-email' && (
             <motion.div
               key="verify"
-              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm flex flex-col items-center gap-6 text-center"
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
+              className="w-full max-w-sm flex flex-col items-center gap-8 text-center"
             >
-              <div className="w-20 h-20 rounded-3xl flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.15)' }}>
-                <Mail size={40} className="text-cyan-400" />
+              <div className="w-24 h-24 rounded-[2.5rem] bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shadow-inner">
+                <Mail size={44} className="text-cyan-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Verifica tu correo</h2>
-                <p className="text-white/50 text-sm mt-2 leading-relaxed">
-                  Te enviamos un enlace de confirmación a<br />
-                  <span className="text-cyan-400 font-bold">{pendingUser?.email}</span>
+                <h2 className="text-3xl font-black tracking-tight">Confirmar <span className="text-cyan-400">Email</span></h2>
+                <p className="text-white/40 text-[10px] mt-4 leading-relaxed uppercase tracking-widest font-bold">
+                  Enviamos un enlace a:<br />
+                  <span className="text-white mt-1 block lowercase">{pendingUser?.email}</span>
                 </p>
               </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-4 text-xs text-white/50 text-left leading-relaxed">
-                📬 Revisa tu bandeja de entrada y haz clic en el enlace. Si no lo ves, revisa la carpeta de spam.
-              </div>
-              <div className="w-full flex flex-col gap-3">
+              <div className="w-full space-y-4">
                 <button onClick={handleCheckVerification} disabled={loading}
-                  className="w-full py-4 font-black rounded-2xl text-sm text-white active:scale-95 transition-transform disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #06b6d4, #14b8a6)' }}>
-                  {loading ? 'Verificando...' : '✓ Ya lo verifiqué, Continuar'}
+                  className="w-full py-5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-black rounded-2xl text-[11px] tracking-[0.3em] uppercase active:scale-95 transition-all shadow-2xl shadow-cyan-900/20">
+                  {loading ? 'Buscando...' : 'Ya lo verifiqué'}
                 </button>
-                <button onClick={handleResendEmail} disabled={resending}
-                  className="w-full py-3 bg-white/5 border border-white/10 text-white/60 font-bold rounded-2xl text-xs flex items-center justify-center gap-2 active:scale-95 transition-transform">
-                  {resending ? <><RefreshCw size={14} className="animate-spin" /> Enviando...</> : <><RefreshCw size={14} /> Reenviar correo</>}
+                <button onClick={() => { auth.signOut(); setScreen('home'); }} className="text-white/30 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all">
+                  Cancelar y Volver
                 </button>
               </div>
             </motion.div>
@@ -340,23 +295,23 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
           {screen === 'pending-approval' && (
             <motion.div
               key="pending"
-              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
-              className="w-full max-w-sm flex flex-col items-center gap-6 text-center"
+              initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 1.05 }}
+              className="w-full max-w-sm flex flex-col items-center gap-8 text-center"
             >
-              <div className="w-20 h-20 rounded-3xl flex items-center justify-center" style={{ background: 'rgba(251,191,36,0.12)' }}>
-                <Clock size={40} className="text-amber-400" />
+              <div className="w-24 h-24 rounded-[2.5rem] bg-amber-500/10 border border-amber-500/20 flex items-center justify-center shadow-inner">
+                <Clock size={44} className="text-amber-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-black text-white tracking-tight">Solicitud Enviada</h2>
-                <p className="text-white/50 text-sm mt-2 leading-relaxed">
-                  Tu registro fue recibido. Un administrador revisará tu solicitud y te autorizará pronto.
+                <h2 className="text-3xl font-black tracking-tight">Modo <span className="text-amber-400">Espera</span></h2>
+                <p className="text-white/40 text-[10px] mt-4 leading-relaxed uppercase tracking-widest font-bold">
+                  Tu solicitud está en revisión.<br />Un administrador te activará pronto.
                 </p>
               </div>
-              <div className="bg-amber-500/8 border border-amber-500/20 rounded-2xl p-5 text-sm text-amber-200/70 leading-relaxed">
-                ⏳ Recibirás acceso una vez que el admin apruebe tu cuenta. Puedes cerrar la app y volver más tarde.
+              <div className="bg-white/[0.03] border border-white/5 p-6 rounded-[2rem] text-[10px] text-white/50 uppercase tracking-[0.2em] font-bold leading-loose">
+                ⚡ Notificaremos a tu correo una vez que seas aprobado como Socio Elite.
               </div>
-              <button onClick={() => auth.signOut()}
-                className="text-white/30 text-xs font-bold hover:text-white/60 transition-colors">
+              <button onClick={() => { auth.signOut(); setScreen('home'); }}
+                className="text-white/30 text-[10px] font-black uppercase tracking-[0.3em] hover:text-white transition-all">
                 Cerrar Sesión
               </button>
             </motion.div>
@@ -365,10 +320,9 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
         </AnimatePresence>
       </div>
 
-      {/* Searmo footer */}
-      <div className="flex flex-col items-center gap-1.5 pb-6 opacity-30 hover:opacity-80 transition-all duration-700">
-        <img src="/Logo SEARMO estilo t.png" alt="Searmo" className="h-5 w-auto object-contain" />
-        <p className="text-[7px] font-black uppercase tracking-[0.5em] text-sky-300/60">Powered by Searmo</p>
+      <div className="pb-10 flex flex-col items-center gap-2 opacity-20 hover:opacity-100 transition-all duration-700">
+         <img src="/searmo-logo.png" alt="Searmo" className="h-4 w-auto brightness-0 invert" />
+         <p className="text-[6px] font-black uppercase tracking-[0.4em] text-white/60">Powered by Searmo</p>
       </div>
     </div>
   );
