@@ -16,6 +16,7 @@ export default defineConfig(({mode}) => {
       cloudflare(),
       VitePWA({
         registerType: 'autoUpdate',
+        injectRegister: 'inline',
         manifestFilename: 'manifest.json',
         workbox: {
           skipWaiting: true,
