@@ -215,7 +215,11 @@ export default function App() {
   const handleLogout = () => { auth.signOut(); };
 
   if (showWelcome) {
-    return <WelcomeScreen onComplete={() => setShowWelcome(false)} />;
+    return (
+      <div className="bg-white">
+        <WelcomeScreen onComplete={() => setShowWelcome(false)} />
+      </div>
+    );
   }
 
   if (authLoading || (user && isApproved === null)) {

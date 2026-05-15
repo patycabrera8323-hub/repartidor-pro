@@ -4,6 +4,7 @@ import {
   sendEmailVerification,
   signInWithEmailAndPassword,
   onAuthStateChanged,
+  updateProfile,
   User
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
@@ -79,6 +80,7 @@ export default function AuthFlow({ onAuthenticated }: AuthFlowProps) {
     setLoading(true);
     try {
       const cred = await createUserWithEmailAndPassword(auth, form.email, form.password);
+      await updateProfile(cred.user, { displayName: form.name });
       await sendEmailVerification(cred.user);
       await setDoc(doc(db, 'drivers', cred.user.uid), {
         name: form.name,
